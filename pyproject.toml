@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handoff-vault"
+version = "0.1.0"
+description = "Back up, move and hand off Claude Code projects without losing chat history"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["claude-code", "backup", "cli", "ai", "developer-tools"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Environment :: Console",
+]
+
+[project.urls]
+Homepage = "https://github.com/MyReleases/handoff-vault"
+
+[project.scripts]
+handoff-vault = "handoff_vault:main"
+
+[tool.setuptools]
+py-modules = ["handoff_vault"]
