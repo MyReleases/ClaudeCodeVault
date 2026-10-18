@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""handoff-vault: back up, move and hand off Claude Code projects without losing chat history.
+"""claude-code-vault: back up, move and hand off Claude Code projects without losing chat history.
 
 Claude Code keeps every conversation in ~/.claude/projects/<encoded-folder-path>/<session>.jsonl.
 The history is tied to the folder path, so moving a project hides its chats, and there is no
@@ -241,7 +241,7 @@ def copy_tree_incremental(src, dst, errors=None):
 def rewrite_transcript(src, dst, old, new):
     """Copy one .jsonl, pointing every `cwd` inside `old` at the same place under `new`."""
     changed = 0
-    tmp = dst + ".hv-tmp"
+    tmp = dst + ".ccvault-tmp"
     with open(src, encoding="utf-8", errors="replace") as fin, \
             open(tmp, "w", encoding="utf-8", newline="") as fout:
         for line in fin:
@@ -334,7 +334,7 @@ def cmd_status(args):
           f"{human_size(sum(r['size'] for r in rows))}" + (f", {orphans} orphaned" if orphans else ""))
     if orphans:
         print("Orphans are chats whose folder was moved or deleted. If you moved it, relink with:\n"
-              "  handoff-vault move <old path> <new path> --history-only")
+              "  claude-code-vault move <old path> <new path> --history-only")
     return 0
 
 
@@ -356,7 +356,7 @@ def cmd_backup(args):
         if new or upd:
             print(f"  {folder}: {new} new, {upd} updated")
     with open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8") as fh:
-        json.dump({"tool": f"handoff-vault {__version__}", "created": dt.datetime.now().isoformat(timespec="seconds"),
+        json.dump({"tool": f"claude-code-vault {__version__}", "created": dt.datetime.now().isoformat(timespec="seconds"),
                    "source": projects_dir(args), "projects": index}, fh, ensure_ascii=False, indent=1)
     print(f"Backed up {len(index)} projects to {dest}: {total_new} new files, {total_upd} updated. "
           "Nothing was deleted.")
@@ -365,7 +365,7 @@ def cmd_backup(args):
         for e in errors[:10]:
             print(f"  {e}")
         return 1
-    print("Restore a project's chats with: handoff-vault move <original path> <path> --history-only "
+    print("Restore a project's chats with: claude-code-vault move <original path> <path> --history-only "
           f"--from-backup {dest}")
     return 0
 
@@ -428,7 +428,7 @@ def cmd_move(args):
     print(f"Done. {copied} chats relinked" + (f", {skipped} already there (use --force to overwrite)" if skipped else "")
           + ".")
     if plan and not getattr(args, "from_backup", None):
-        print("The old history was kept and now shows as an orphan in `handoff-vault status`;"
+        print("The old history was kept and now shows as an orphan in `claude-code-vault status`;"
               " delete it yourself once you are happy.")
     print(f"Continue in the new place:  cd \"{new}\"  &&  claude --resume")
     return 0
@@ -476,7 +476,7 @@ def cmd_export(args):
         return 2
     histories = [] if args.no_chats else histories_for(args, project)
     out = abspath(args.output or os.path.join(
-        os.path.dirname(project), f"{os.path.basename(project)}-{dt.date.today().isoformat()}.hvault.zip"))
+        os.path.dirname(project), f"{os.path.basename(project)}-{dt.date.today().isoformat()}.ccvault.zip"))
     if norm(os.path.dirname(out)).startswith(norm(project)):
         print("Write the export outside the project folder (use -o).")
         return 2
@@ -500,7 +500,7 @@ def cmd_export(args):
         for full, rel in _walk_project(project, excludes, not args.no_git):
             z.write(full, os.path.join("project", rel))
             count += 1
-        manifest = {"tool": f"handoff-vault {__version__}", "created": dt.datetime.now().isoformat(timespec="seconds"),
+        manifest = {"tool": f"claude-code-vault {__version__}", "created": dt.datetime.now().isoformat(timespec="seconds"),
                     "project_name": os.path.basename(project), "original_path": project, "histories": [],
                     "redacted": bool(found and args.redact)}
         for h in histories:
@@ -512,7 +512,7 @@ def cmd_export(args):
             for full, rel in _walk_project(stage, [], True):
                 z.write(full, os.path.join("chats", h.name, rel))
             manifest["histories"].append({"folder": h.name, "cwd": h.project, "sessions": len(h.sessions)})
-        z.writestr("handoff-vault.json", json.dumps(manifest, ensure_ascii=False, indent=1))
+        z.writestr("claude-code-vault.json", json.dumps(manifest, ensure_ascii=False, indent=1))
     chats = sum(x["sessions"] for x in manifest["histories"])
     print(f"Exported {count} files and {chats} chats to {out} ({human_size(os.path.getsize(out))}).")
     if found and args.redact:
@@ -542,9 +542,9 @@ def cmd_import(args):
         return 2
     with zipfile.ZipFile(src) as z:
         try:
-            manifest = json.loads(z.read("handoff-vault.json"))
+            manifest = json.loads(z.read("claude-code-vault.json"))
         except KeyError:
-            print("This zip was not made by handoff-vault export (no handoff-vault.json).")
+            print("This zip was not made by claude-code-vault export (no claude-code-vault.json).")
             return 2
         old = manifest["original_path"]
         try:  # validate every path before writing anything
@@ -752,8 +752,22 @@ def cmd_init(args):
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="handoff-vault",
-        description="Back up, move and hand off Claude Code projects without losing chat history.")
+        prog="claude-code-vault",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Back up, move and hand off Claude Code projects without losing chat history.\n"
+                    "Your chats are only ever copied, never deleted. Short alias: ccvault",
+        epilog="""common tasks:
+  see what you have and find lost chats   ccvault status
+  back up every chat                       ccvault backup ~/claude-backup
+  move a project and keep its chats        ccvault move ~/Desktop/app ~/code/app
+  folder already moved by hand?            ccvault move ~/Desktop/app ~/code/app --history-only
+  take a project to another computer       ccvault export ~/code/app -o app.zip --redact
+  ...and open it there                     ccvault import app.zip ~/code/app
+  check chats for leaked keys              ccvault scan --all
+  set up CLAUDE.md, HANDOFF.md, /handoff   ccvault init ~/code/app
+
+Add --dry-run to `move` to preview. Help for one command: ccvault move --help
+Guide: https://github.com/MyReleases/ClaudeCodeVault""")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("--claude-dir", help="Claude Code config folder (default: $CLAUDE_CONFIG_DIR or ~/.claude)")
     sub = p.add_subparsers(dest="command", required=True)

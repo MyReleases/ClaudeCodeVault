@@ -10,7 +10,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import handoff_vault as hv  # noqa: E402
+import claude_code_vault as hv  # noqa: E402
 
 # Built at runtime so no token-shaped string is stored in the repository.
 FAKE_TOKEN = "gh" + "p_" + "A1b2C3d4E5" * 4
@@ -26,7 +26,7 @@ def line(cwd, kind="user", text="hello", when=None, **extra):
 
 class Sandbox(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="hv-test-")
+        self.tmp = tempfile.mkdtemp(prefix="ccvault-test-")
         self.claude = os.path.join(self.tmp, "claude")
         self.projects = os.path.join(self.claude, "projects")
         os.makedirs(self.projects)
@@ -212,7 +212,7 @@ class TestExportImport(Sandbox):
     def test_import_rejects_unsafe_paths(self):
         bad = os.path.join(self.tmp, "bad.zip")
         with zipfile.ZipFile(bad, "w") as z:
-            z.writestr("handoff-vault.json", json.dumps({"original_path": "/x", "histories": []}))
+            z.writestr("claude-code-vault.json", json.dumps({"original_path": "/x", "histories": []}))
             z.writestr("project/ok.txt", "fine")
             z.writestr("project/../../evil.txt", "x")
         dest = os.path.join(self.tmp, "dest")
